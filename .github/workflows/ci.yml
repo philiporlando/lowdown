@@ -25,7 +25,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
           python-version: "3.12"
-      - run: uv sync --frozen
+      - run: uv sync --locked
       - name: ruff check
         run: uv run ruff check --output-format=github src tests
       - name: ruff format --check
@@ -41,7 +41,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
           python-version: "3.12"
-      - run: uv sync --frozen
+      - run: uv sync --locked
       - run: uv run mypy
 
   test:
@@ -54,7 +54,7 @@ jobs:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
           python-version: "3.12"
-      - run: uv sync --frozen
+      - run: uv sync --locked
       - run: uv run python -m pytest -q
 
   docker:
