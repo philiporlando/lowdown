@@ -1,13 +1,18 @@
+# Local development / build compose. For the homelab, pull the published image
+# and attach it to your Pangolin network with no host port publish — see the
+# "Deploy" section of the README.
 services:
   lowdown:
     build: .
-    image: lowdown:latest
+    image: ghcr.io/philiporlando/lowdown:latest
     container_name: lowdown
     restart: unless-stopped
     env_file:
       - .env
     ports:
-      - "8000:8000"
+      # Bind to loopback only in dev so the unauthenticated app isn't exposed on
+      # the LAN. In production it's reached over the proxy network, not published.
+      - "127.0.0.1:8000:8000"
     volumes:
-      # Persist the SQLite database across restarts.
+      # Persist the SQLite database (events + FAA registry cache) across restarts.
       - ./data:/app/data

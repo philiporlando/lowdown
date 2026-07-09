@@ -62,7 +62,61 @@ docker compose up --build
 # open http://localhost:8000
 ```
 
-The SQLite database is persisted to `./data`.
+The SQLite database is persisted to `./data`. In dev the port is bound to
+`127.0.0.1` only, so the (unauthenticated) app isn't exposed on your LAN.
+
+## Deploy (GHCR + reverse proxy)
+
+The app has **no built-in auth** — put it behind a reverse proxy/auth layer
+(e.g. Pangolin/Traefik) and never publish its port to the LAN. The image runs as
+a non-root user, ships a healthcheck, and honours `X-Forwarded-*` from the proxy
+(`uvicorn --proxy-headers`, with `FORWARDED_ALLOW_IPS=*` because only the proxy
+can reach it).
+
+**Publish to GHCR.** Push a tag (or run the *Publish image* workflow) and CI
+builds a multi-arch image to `ghcr.io/<owner>/lowdown`:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
+
+To build/push manually from a dev box instead:
+
+```bash
+echo "$GHCR_PAT" | docker login ghcr.io -u <owner> --password-stdin
+docker buildx build --platform linux/amd64,linux/arm64 \
+  -t ghcr.io/<owner>/lowdown:v0.1.0 -t ghcr.io/<owner>/lowdown:latest --push .
+```
+
+**Run on the homelab**, attached to your proxy's shared network with **no
+published ports** (Pangolin/Traefik routes to `lowdown:8000` internally):
+
+```yaml
+services:
+  lowdown:
+    image: ghcr.io/<owner>/lowdown:latest
+    restart: unless-stopped
+    env_file: [.env]              # OpenSky creds, LD_APARTMENT_LAT/LON, etc.
+    volumes:
+      - ./data:/app/data          # chown 1000:1000 ./data  (image runs as UID 1000)
+    networks: [pangolin]          # your existing proxy network
+    # no `ports:` — the proxy reaches it over the network; add your Pangolin/
+    # Traefik routing (labels/resource) here.
+networks:
+  pangolin:
+    external: true
+```
+
+Notes:
+- **Serve at a subdomain root** (e.g. `lowdown.example.com`), not a subpath —
+  the dashboard uses absolute `/api/...` URLs.
+- **Seed the FAA registry once** after first start (it lives in the data volume,
+  not the image): `docker compose exec lowdown lowdown faa-sync`. Re-run
+  periodically as the FAA updates the file.
+- Pangolin auth should cover everything; optionally allow `/healthz`
+  unauthenticated for external uptime checks.
+- The dashboard loads Leaflet + CARTO basemap tiles from public CDNs
+  (client-side), so viewers' browsers need outbound internet.
 
 ## OpenSky credentials
 
