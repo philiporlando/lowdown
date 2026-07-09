@@ -1,0 +1,13 @@
+services:
+  lowdown:
+    build: .
+    image: lowdown:latest
+    container_name: lowdown
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist the SQLite database across restarts.
+      - ./data:/app/data

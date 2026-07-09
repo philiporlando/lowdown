@@ -1,0 +1,33 @@
+[project]
+name = "lowdown"
+version = "0.1.0"
+description = "Log and flag low-flying aircraft over a target location (apparent 14 CFR 91.119 low-altitude events)."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+    "sqlmodel>=0.0.21",
+    "pydantic-settings>=2.3",
+    "jinja2>=3.1",
+]
+
+[project.scripts]
+lowdown = "lowdown.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/lowdown"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.2",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

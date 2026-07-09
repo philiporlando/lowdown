@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>lowdown — low-flying aircraft watch</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root { --bg:#0f1419; --panel:#1a222c; --fg:#e6edf3; --muted:#8b98a5; --low:#ff5252; --ok:#4caf50; --warn:#ffb300; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
+    header { padding:10px 16px; border-bottom:1px solid #2a3541; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+    header h1 { font-size:18px; margin:0; }
+    header .meta { color:var(--muted); font-size:13px; }
+    #wrap { display:flex; height:calc(100vh - 47px); }
+    #map { flex:1 1 60%; }
+    #side { flex:1 1 40%; max-width:560px; overflow:auto; padding:12px 14px; border-left:1px solid #2a3541; }
+    h2 { font-size:14px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:18px 0 8px; }
+    table { width:100%; border-collapse:collapse; font-size:13px; }
+    th,td { text-align:left; padding:6px 8px; border-bottom:1px solid #2a3541; white-space:nowrap; }
+    tr.event { cursor:pointer; }
+    tr.event:hover { background:#222c37; }
+    .pill { display:inline-block; padding:1px 7px; border-radius:10px; font-size:11px; font-weight:600; }
+    .pill.low { background:rgba(255,82,82,.18); color:var(--low); }
+    .pill.exempt { background:rgba(255,179,0,.18); color:var(--warn); }
+    .pill.open { background:rgba(76,175,80,.18); color:var(--ok); }
+    .stats { display:flex; gap:16px; flex-wrap:wrap; font-size:13px; color:var(--muted); }
+    .stats b { color:var(--fg); font-size:16px; }
+    .disclaimer { font-size:11px; color:var(--muted); margin-top:20px; line-height:1.5; border-top:1px solid #2a3541; padding-top:10px; }
+    a { color:#58a6ff; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🛩️ lowdown</h1>
+    <span class="meta">watch radius {{ (earshot_radius_m/1000)|round(1) }} km · flag &lt; {{ threshold_ft|round|int }} ft AGL</span>
+    <span class="meta" id="status">connecting…</span>
+  </header>
+  <div id="wrap">
+    <div id="map"></div>
+    <div id="side">
+      <div class="stats" id="stats"></div>
+      <h2>Live aircraft in radius</h2>
+      <table id="live"><thead><tr><th>Tail / call</th><th>AGL</th><th>Dist</th><th>Status</th></tr></thead><tbody></tbody></table>
+      <h2>Flagged low-altitude events</h2>
+      <table id="events"><thead><tr><th>Tail</th><th>Min AGL</th><th>Seen</th><th>Note</th></tr></thead><tbody></tbody></table>
+      <div class="disclaimer">
+        <b>Not legal advice.</b> These are <i>apparent</i> low-altitude events approximating
+        14&nbsp;CFR&nbsp;§91.119(b) as height above terrain. Aircraft taking off or landing are
+        exempt (marked <span class="pill exempt">approach/dep</span>), as are helicopters.
+        Altitudes come from ADS-B and terrain models and can be off by a few hundred feet.
+        Use as a record to support a complaint, not as proof of a violation.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const APT = [{{ apartment_lat }}, {{ apartment_lon }}];
+    const RADIUS = {{ earshot_radius_m }};
+    const map = L.map('map').setView(APT, 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, attribution: '© OpenStreetMap'
+    }).addTo(map);
+    L.circle(APT, { radius: RADIUS, color:'#58a6ff', weight:1, fillOpacity:0.05 }).addTo(map);
+    L.marker(APT).addTo(map).bindPopup('Watch center');
+
+    let liveLayer = L.layerGroup().addTo(map);
+    let pathLayer = L.layerGroup().addTo(map);
+
+    fetch('/api/config').then(r=>r.json()).then(cfg=>{
+      (cfg.airports||[]).forEach(a=>{
+        L.circleMarker([a.lat,a.lon], {radius:4,color:'#ffb300',fillOpacity:1})
+          .addTo(map).bindTooltip(a.code + ' (approach/dep exempt zone)');
+      });
+    });
+
+    function fmt(v, suffix){ return v==null ? '—' : v + (suffix||''); }
+    function tail(a){ return a.n_number || a.callsign || a.icao24; }
+
+    // Link the tail to its FlightAware registration page (new tab) when we have
+    // an N-number; callsign/ICAO-only entries stay plain text. `stopProp` keeps
+    // a click from also triggering the events-table row handler.
+    function tailLink(a, stopProp){
+      const label = tail(a);
+      if (!a.n_number) return label;
+      const onclick = stopProp ? ' onclick="event.stopPropagation()"' : '';
+      const url = 'https://www.flightaware.com/resources/registration/' + encodeURIComponent(a.n_number);
+      return `<a href="${url}" target="_blank" rel="noopener noreferrer"${onclick}>${label}</a>`;
+    }
+
+    function planeIcon(color, opacity){
+      return L.divIcon({ className:'', html:
+        `<div style="font-size:18px;line-height:18px;color:${color};opacity:${opacity??1};text-shadow:0 0 3px #000">✈</div>`,
+        iconSize:[18,18], iconAnchor:[9,9] });
+    }
+
+    async function refreshLive(){
+      const b = map.getBounds();
+      const q = new URLSearchParams({
+        lamin: b.getSouth(), lomin: b.getWest(), lamax: b.getNorth(), lomax: b.getEast(),
+      });
+      const data = await (await fetch('/api/live?' + q)).json();
+      const st = document.getElementById('status');
+      if (data.last_error) st.innerHTML = '⚠️ ' + data.last_error;
+      else st.textContent = data.last_poll ? ('last poll ' + new Date(data.last_poll).toLocaleTimeString()) : 'waiting for first poll…';
+
+      liveLayer.clearLayers();
+      const tb = document.querySelector('#live tbody'); tb.innerHTML='';
+      // Aircraft in earshot are flagged (red/amber/green); those in view but
+      // beyond earshot are shown dimmed and grey — never flagged.
+      data.aircraft.sort((a,b)=> (a.agl_ft??1e9)-(b.agl_ft??1e9));
+      for (const a of data.aircraft){
+        const color = !a.in_earshot ? '#7d8896'
+          : a.is_low ? (a.likely_approach_departure ? '#ffb300' : '#ff5252') : '#4caf50';
+        const earshotNote = a.in_earshot ? '' : '<br><i>outside watch radius</i>';
+        L.marker([a.lat,a.lon], {icon:planeIcon(color, a.in_earshot ? 1 : 0.5)}).addTo(liveLayer)
+          .bindPopup(`<b>${tail(a)}</b><br>AGL ${fmt(a.agl_ft,' ft')} · MSL ${fmt(a.msl_ft,' ft')}<br>${fmt(a.distance_m,' m')} away · ${fmt(a.velocity_kt,' kt')}${earshotNote}`);
+        if (!a.in_earshot) continue;  // table lists only aircraft in radius
+        const status = a.is_low
+          ? (a.likely_approach_departure ? '<span class="pill exempt">approach/dep</span>' : '<span class="pill low">LOW</span>')
+          : 'ok';
+        tb.insertAdjacentHTML('beforeend',
+          `<tr><td>${tail(a)}</td><td>${fmt(a.agl_ft,'')}</td><td>${fmt(a.distance_m,'')}</td><td>${status}</td></tr>`);
+      }
+    }
+
+    async function refreshEvents(){
+      const [events, s] = await Promise.all([
+        (await fetch('/api/events?limit=50')).json(),
+        (await fetch('/api/stats')).json(),
+      ]);
+      document.getElementById('stats').innerHTML =
+        `<div><b>${s.total_events}</b><br>events</div>
+         <div><b>${s.unexplained}</b><br>unexplained</div>
+         <div><b>${s.likely_approach_departure}</b><br>approach/dep</div>
+         <div><b>${s.distinct_aircraft}</b><br>aircraft</div>`;
+      const tb = document.querySelector('#events tbody'); tb.innerHTML='';
+      for (const e of events){
+        const note = e.likely_approach_departure
+          ? `<span class="pill exempt">${e.near_airport||'approach/dep'}</span>`
+          : (e.is_open ? '<span class="pill open">ongoing</span>' : '<span class="pill low">flagged</span>');
+        const row = document.createElement('tr');
+        row.className='event';
+        row.innerHTML = `<td>${e.n_number||e.callsign||e.icao24}</td><td>${e.min_agl_ft} ft</td><td>${new Date(e.last_seen).toLocaleString()}</td><td>${note}</td>`;
+        row.onclick = ()=>showPath(e.id);
+        tb.appendChild(row);
+      }
+    }
+
+    async function showPath(id){
+      const e = await (await fetch('/api/events/'+id)).json();
+      pathLayer.clearLayers();
+      const pts = e.observations.map(o=>[o.lat,o.lon]);
+      if (pts.length){
+        L.polyline(pts, {color:'#ff5252', weight:3, opacity:0.8}).addTo(pathLayer);
+        e.observations.forEach(o=>{
+          L.circleMarker([o.lat,o.lon], {radius:3,color:'#ff5252',fillOpacity:1}).addTo(pathLayer)
+            .bindTooltip(`${o.agl_ft??'?'} ft AGL @ ${new Date(o.ts).toLocaleTimeString()}`);
+        });
+        map.fitBounds(L.latLngBounds(pts).pad(0.3));
+      }
+    }
+
+    // Refetch when the user pans/zooms (debounced), so the map always shows
+    // whatever is in the current viewport.
+    let moveTimer;
+    map.on('moveend', ()=>{ clearTimeout(moveTimer); moveTimer = setTimeout(refreshLive, 400); });
+
+    refreshLive(); refreshEvents();
+    setInterval(refreshLive, 5000);
+    setInterval(refreshEvents, 15000);
+  </script>
+</body>
+</html>
