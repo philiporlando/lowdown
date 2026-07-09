@@ -17,6 +17,7 @@ import io
 import logging
 import tempfile
 import zipfile
+from collections.abc import Iterator
 
 import httpx
 
@@ -67,7 +68,7 @@ class AircraftTypeProvider:
         return self.lookup(n_number)[0]
 
 
-def _header_index(reader: "csv._reader") -> dict[str, int]:
+def _header_index(reader: Iterator[list[str]]) -> dict[str, int]:
     header = next(reader)
     return {name.strip().upper(): i for i, name in enumerate(header)}
 
@@ -118,11 +119,15 @@ def sync_registry(settings: Settings | None = None) -> int:
     # The FAA server 403s requests without a browser-like User-Agent.
     headers = {"User-Agent": "Mozilla/5.0 (lowdown aircraft monitor)"}
     with tempfile.NamedTemporaryFile(suffix=".zip") as tmp:
-        with httpx.Client(timeout=180.0, follow_redirects=True, headers=headers) as client:
-            with client.stream("GET", url) as resp:
-                resp.raise_for_status()
-                for chunk in resp.iter_bytes(chunk_size=1 << 20):
-                    tmp.write(chunk)
+        with (
+            httpx.Client(
+                timeout=180.0, follow_redirects=True, headers=headers
+            ) as client,
+            client.stream("GET", url) as resp,
+        ):
+            resp.raise_for_status()
+            for chunk in resp.iter_bytes(chunk_size=1 << 20):
+                tmp.write(chunk)
         tmp.flush()
 
         with zipfile.ZipFile(tmp.name) as zf:
@@ -138,7 +143,7 @@ def _load_master(
     zf: zipfile.ZipFile, acftref: dict[str, tuple[str | None, str]]
 ) -> int:
     """Stream MASTER.txt, joining to ACFTREF, into the registry table."""
-    table = AircraftRegistration.__table__
+    table = AircraftRegistration.__table__  # type: ignore[attr-defined]
     with engine.begin() as conn:
         conn.execute(table.delete())
 

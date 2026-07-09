@@ -34,20 +34,18 @@ DEFAULT_AIRPORTS: list[Airport] = [
 # radius are annotated as likely approach/departure rather than counted as
 # apparent violations.
 DEFAULT_HELIPADS: list[Helipad] = [
-    Helipad(code="OHSU", lat=45.4993, lon=-122.6855),      # OHSU Hospital
-    Helipad(code="EMANUEL", lat=45.5435, lon=-122.6668),   # Legacy Emanuel (trauma)
+    Helipad(code="OHSU", lat=45.4993, lon=-122.6855),  # OHSU Hospital
+    Helipad(code="EMANUEL", lat=45.5435, lon=-122.6668),  # Legacy Emanuel (trauma)
     Helipad(code="GOOD-SAM", lat=45.5308, lon=-122.6875),  # Legacy Good Samaritan
     Helipad(code="PROVIDENCE", lat=45.5432, lon=-122.5905),  # Providence Portland
-    Helipad(code="ADVENTIST", lat=45.5140, lon=-122.5490),   # Adventist Health
-    Helipad(code="TUALITY", lat=45.5219, lon=-122.9847),     # Hillsboro Medical
+    Helipad(code="ADVENTIST", lat=45.5140, lon=-122.5490),  # Adventist Health
+    Helipad(code="TUALITY", lat=45.5219, lon=-122.9847),  # Hillsboro Medical
     Helipad(code="SALMON-CREEK", lat=45.7075, lon=-122.6535),  # Legacy Salmon Creek
 ]
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env", env_prefix="LD_", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_prefix="LD_", extra="ignore")
 
     # Location to monitor (default: downtown Portland, OR).
     apartment_lat: float = 45.5152

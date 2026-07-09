@@ -48,7 +48,7 @@ class LowAltitudeEvent(SQLModel, table=True):
     near_helipad: str | None = None
     likely_approach_departure: bool = False
     is_rotorcraft: bool = False
-    aircraft_type: str | None = None   # FAA registry category, when known
+    aircraft_type: str | None = None  # FAA registry category, when known
     aircraft_model: str | None = None  # FAA registry make/model, when known
     # True when the event matches a legal exemption (approach/departure,
     # rotorcraft, glider/balloon). Recorded, but excluded from "unexplained".

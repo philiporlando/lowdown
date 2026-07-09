@@ -20,7 +20,7 @@ engine = create_engine(_settings.db_url, connect_args=_connect_args)
 
 
 @event.listens_for(Engine, "connect")
-def _set_sqlite_pragma(dbapi_connection, _connection_record):  # noqa: ANN001
+def _set_sqlite_pragma(dbapi_connection, _connection_record):
     """Enable WAL so the collector and API can read/write concurrently."""
     try:
         cursor = dbapi_connection.cursor()

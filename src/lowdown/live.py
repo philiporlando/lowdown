@@ -156,7 +156,9 @@ class LiveService:
         self._opensky = opensky
         self._elevation = elevation
         self._aircraft_types = aircraft_types or AircraftTypeProvider(settings)
-        self._cache: dict[tuple[float, float, float, float], tuple[float, list[dict]]] = {}
+        self._cache: dict[
+            tuple[float, float, float, float], tuple[float, list[dict]]
+        ] = {}
 
     def _clamp(
         self, lamin: float, lomin: float, lamax: float, lomax: float

@@ -25,9 +25,34 @@ packages = ["src/lowdown"]
 
 [dependency-groups]
 dev = [
+    "mypy>=2.2.0",
     "pytest>=8.2",
+    "ruff>=0.8",
 ]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+# Line length (E501) is left to the formatter; long string literals may exceed it.
+select = ["E", "W", "F", "I", "B", "UP", "C4", "SIM", "BLE", "RUF"]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests favour readability over some lint niceties (kwargs-style dict() calls,
+# explicit == comparisons, etc.).
+"tests/*" = ["E712", "SIM", "C408"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["src"]
+warn_redundant_casts = true
+# Flags stale `# type: ignore`s — e.g. the handful on SQLModel/SQLAlchemy ORM
+# expressions (Column.desc(), Model.__table__) that mypy can't model; if a
+# future mypy/SQLModel understands them, the unused ignore will surface here.
+warn_unused_ignores = true

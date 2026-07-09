@@ -42,7 +42,11 @@ class AircraftState:
     @property
     def altitude_m(self) -> float | None:
         """Best available MSL altitude (GPS/geometric preferred)."""
-        return self.geo_altitude_m if self.geo_altitude_m is not None else self.baro_altitude_m
+        return (
+            self.geo_altitude_m
+            if self.geo_altitude_m is not None
+            else self.baro_altitude_m
+        )
 
 
 class OpenSkyClient:
@@ -55,8 +59,7 @@ class OpenSkyClient:
     @property
     def _has_credentials(self) -> bool:
         return bool(
-            self._settings.opensky_client_id
-            and self._settings.opensky_client_secret
+            self._settings.opensky_client_id and self._settings.opensky_client_secret
         )
 
     async def _access_token(self) -> str | None:

@@ -170,11 +170,25 @@ US tail numbers are derived directly from the ICAO24 address (no lookup needed)
 via the deterministic FAA N-number algorithm in
 [`nnumber.py`](src/lowdown/nnumber.py).
 
-## Tests
+## Tests & quality gate
 
 ```bash
-uv run pytest
+uv sync                       # install dev tools (ruff, mypy, pytest)
+uv run python -m pytest       # unit tests
+uv run ruff check src tests   # lint
+uv run ruff format src tests  # auto-format (drop the args + --check to verify only)
+uv run mypy                   # static types
 ```
+
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs all of the above
+plus a Dockerfile lint (hadolint) and an image build + `/healthz` smoke test on
+every pull request. The [publish workflow](.github/workflows/publish-image.yml)
+re-validates lint + types + tests before pushing an image to GHCR.
+
+Type checking is a **blocking** gate (mypy). The few SQLModel/SQLAlchemy ORM
+expressions mypy can't model (`Column.desc()`, `Model.__table__`) carry targeted
+`# type: ignore` comments; `warn_unused_ignores` flags them if a future mypy
+learns to understand them.
 
 ## Limitations / ideas
 

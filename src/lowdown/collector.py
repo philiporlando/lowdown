@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from sqlmodel import select
@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 
 def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class Collector:
@@ -50,7 +50,13 @@ class Collector:
 
             if pa.in_earshot and pa.is_low:
                 self._record(
-                    st, pa.ev, pa.distance_m, pa.ground_ft, pa.vertical_fpm, pa.n_number, now
+                    st,
+                    pa.ev,
+                    pa.distance_m,
+                    pa.ground_ft,
+                    pa.vertical_fpm,
+                    pa.n_number,
+                    now,
                 )
 
         self._close_stale_events(now)
@@ -77,7 +83,7 @@ class Collector:
                 select(LowAltitudeEvent)
                 .where(LowAltitudeEvent.icao24 == st.icao24)
                 .where(LowAltitudeEvent.is_open == True)  # noqa: E712
-                .order_by(LowAltitudeEvent.last_seen.desc())
+                .order_by(LowAltitudeEvent.last_seen.desc())  # type: ignore[attr-defined]
             ).first()
 
             if event is not None and _aware(event.last_seen) < now - gap:
@@ -185,7 +191,7 @@ class Collector:
             while True:
                 try:
                     await self.poll_once(opensky, elevation, aircraft_types)
-                except Exception as exc:  # noqa: BLE001 — keep the loop alive
+                except Exception as exc:
                     log.exception("Poll failed: %s", exc)
                     runtime_state.set_error(str(exc))
                 await asyncio.sleep(s.poll_interval_s)
@@ -193,4 +199,4 @@ class Collector:
 
 def _aware(dt: datetime) -> datetime:
     """SQLite may return naive datetimes; treat them as UTC for comparisons."""
-    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)

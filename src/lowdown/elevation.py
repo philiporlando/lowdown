@@ -11,7 +11,6 @@ from __future__ import annotations
 import logging
 
 import httpx
-from sqlmodel import select
 
 from .config import Settings
 from .db import get_session

@@ -15,7 +15,6 @@ from dataclasses import dataclass, field
 from .config import Settings
 from .geo import haversine_m
 
-
 # Registry categories treated as rotorcraft (exempt under 91.119(d)) and other
 # categories that fly under different altitude rules.
 _ROTOR_CATEGORIES = {"rotorcraft", "gyroplane"}
@@ -39,9 +38,7 @@ class Evaluation:
     notes: list[str] = field(default_factory=list)
 
 
-def _nearest(
-    lat: float, lon: float, points
-) -> tuple[str | None, float]:
+def _nearest(lat: float, lon: float, points) -> tuple[str | None, float]:
     """Return (code, distance_km) of the closest configured point."""
     best_code: str | None = None
     best_km = float("inf")
@@ -114,7 +111,9 @@ def evaluate(
 
     reasons: list[str] = []
     if near_airport is not None:
-        reasons.append(f"within {settings.airport_proximity_km:.0f} km of {near_airport} (likely takeoff/landing)")
+        reasons.append(
+            f"within {settings.airport_proximity_km:.0f} km of {near_airport} (likely takeoff/landing)"
+        )
     if near_helipad is not None:
         reasons.append("near a hospital helipad (likely medevac landing)")
     if steep:

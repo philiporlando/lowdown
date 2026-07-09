@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from starlette.requests import Request
 from sqlmodel import select
+from starlette.requests import Request
 
 from .collector import Collector
 from .config import get_settings
@@ -25,7 +26,9 @@ from .models import LowAltitudeEvent, Observation
 from .opensky import OpenSkyClient
 from .state import runtime_state
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+)
 log = logging.getLogger(__name__)
 
 _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
@@ -57,10 +60,8 @@ async def lifespan(app: FastAPI):
     finally:
         if task is not None:
             task.cancel()
-            try:
+            with contextlib.suppress(asyncio.CancelledError):
                 await task
-            except asyncio.CancelledError:
-                pass
         await client.aclose()
 
 
@@ -108,7 +109,10 @@ async def live(
     snapshot, last_poll, last_error = runtime_state.read()
 
     have_bounds = (
-        None not in (lamin, lomin, lamax, lomax)
+        lamin is not None
+        and lomin is not None
+        and lamax is not None
+        and lomax is not None
         and lamin < lamax
         and lomin < lomax
     )
@@ -118,11 +122,11 @@ async def live(
                 lamin, lomin, lamax, lomax
             )
             return {
-                "last_poll": datetime.now(timezone.utc).isoformat(),
+                "last_poll": datetime.now(UTC).isoformat(),
                 "last_error": None,
                 "aircraft": aircraft,
             }
-        except Exception as exc:  # noqa: BLE001 — degrade to the earshot snapshot
+        except Exception as exc:
             log.exception("Viewport live fetch failed: %s", exc)
             last_error = str(exc)
 
@@ -139,7 +143,9 @@ def events(
     limit: int = Query(100, ge=1, le=1000),
 ) -> list[dict]:
     with get_session() as session:
-        stmt = select(LowAltitudeEvent).order_by(LowAltitudeEvent.last_seen.desc())
+        stmt = select(LowAltitudeEvent).order_by(
+            LowAltitudeEvent.last_seen.desc()  # type: ignore[attr-defined]
+        )
         if status == "open":
             stmt = stmt.where(LowAltitudeEvent.is_open == True)  # noqa: E712
         elif status == "closed":
@@ -157,7 +163,7 @@ def event_detail(event_id: int) -> dict:
         obs = session.exec(
             select(Observation)
             .where(Observation.event_id == event_id)
-            .order_by(Observation.ts)
+            .order_by(Observation.ts)  # type: ignore[arg-type]
         ).all()
         data = _event_dict(event)
         data["observations"] = [
@@ -185,7 +191,7 @@ def tail_history(n_number: str) -> list[dict]:
         rows = session.exec(
             select(LowAltitudeEvent)
             .where(LowAltitudeEvent.n_number == n_number.upper())
-            .order_by(LowAltitudeEvent.last_seen.desc())
+            .order_by(LowAltitudeEvent.last_seen.desc())  # type: ignore[attr-defined]
         ).all()
         return [_event_dict(e) for e in rows]
 
@@ -228,7 +234,7 @@ def _iso_utc(dt: datetime) -> str:
     would misread these UTC values as local time.
     """
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=timezone.utc)
+        dt = dt.replace(tzinfo=UTC)
     return dt.isoformat()
 
 
