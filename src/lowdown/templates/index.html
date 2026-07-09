@@ -111,14 +111,19 @@
       // beyond earshot are shown dimmed and grey — never flagged.
       data.aircraft.sort((a,b)=> (a.agl_ft??1e9)-(b.agl_ft??1e9));
       for (const a of data.aircraft){
+        // grey = out of earshot; amber = low but exempt; red = apparent violation.
         const color = !a.in_earshot ? '#7d8896'
-          : a.is_low ? (a.likely_approach_departure ? '#ffb300' : '#ff5252') : '#4caf50';
-        const earshotNote = a.in_earshot ? '' : '<br><i>outside watch radius</i>';
+          : a.is_low ? (a.is_exempt ? '#ffb300' : '#ff5252') : '#4caf50';
+        const typeLine = a.aircraft_model ? `<br>${a.aircraft_model}`
+          : a.aircraft_type ? `<br>${a.aircraft_type}` : '';
+        let extra = '';
+        if (!a.in_earshot) extra = '<br><i>outside watch radius</i>';
+        else if (a.is_low && a.is_exempt) extra = `<br><i>exempt: ${a.exempt_reason}</i>`;
         L.marker([a.lat,a.lon], {icon:planeIcon(color, a.in_earshot ? 1 : 0.5)}).addTo(liveLayer)
-          .bindPopup(`<b>${tailLink(a)}</b><br>AGL ${fmt(a.agl_ft,' ft')} · MSL ${fmt(a.msl_ft,' ft')}<br>${fmt(a.distance_m,' m')} away · ${fmt(a.velocity_kt,' kt')}${earshotNote}`);
+          .bindPopup(`<b>${tailLink(a)}</b>${typeLine}<br>AGL ${fmt(a.agl_ft,' ft')} · MSL ${fmt(a.msl_ft,' ft')}<br>${fmt(a.distance_m,' m')} away · ${fmt(a.velocity_kt,' kt')}${extra}`);
         if (!a.in_earshot) continue;  // table lists only aircraft in radius
         const status = a.is_low
-          ? (a.likely_approach_departure ? '<span class="pill exempt">approach/dep</span>' : '<span class="pill low">LOW</span>')
+          ? (a.is_exempt ? `<span class="pill exempt" title="${a.exempt_reason||''}">exempt</span>` : '<span class="pill low">LOW</span>')
           : 'ok';
         tb.insertAdjacentHTML('beforeend',
           `<tr><td>${tailLink(a)}</td><td>${fmt(a.agl_ft,'')}</td><td>${fmt(a.distance_m,'')}</td><td>${status}</td></tr>`);
@@ -133,12 +138,17 @@
       document.getElementById('stats').innerHTML =
         `<div><b>${s.total_events}</b><br>events</div>
          <div><b>${s.unexplained}</b><br>unexplained</div>
-         <div><b>${s.likely_approach_departure}</b><br>approach/dep</div>
+         <div><b>${s.exempt}</b><br>exempt</div>
          <div><b>${s.distinct_aircraft}</b><br>aircraft</div>`;
       const tb = document.querySelector('#events tbody'); tb.innerHTML='';
       for (const e of events){
-        const note = e.likely_approach_departure
-          ? `<span class="pill exempt">${e.near_airport||'approach/dep'}</span>`
+        // Note the exemption by aircraft kind, not by facility (we don't care
+        // which hospital/airport): helicopter vs. airplane on approach/departure.
+        let exemptLabel = 'approach/dep';
+        if (e.is_rotorcraft || e.near_helipad) exemptLabel = 'helicopter';
+        else if (e.aircraft_type && e.aircraft_type !== 'fixed-wing') exemptLabel = e.aircraft_type;
+        const note = e.is_exempt
+          ? `<span class="pill exempt" title="${e.exempt_reason||''}">${exemptLabel}</span>`
           : (e.is_open ? '<span class="pill open">ongoing</span>' : '<span class="pill low">flagged</span>');
         const row = document.createElement('tr');
         row.className='event';

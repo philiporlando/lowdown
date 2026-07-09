@@ -20,6 +20,10 @@ def main() -> None:
 
     sub.add_parser("collect", help="Run only the polling collector.")
     sub.add_parser("initdb", help="Create database tables and exit.")
+    sub.add_parser(
+        "faa-sync",
+        help="Download the FAA aircraft registry into the local type cache.",
+    )
 
     args = parser.parse_args()
     command = args.command or "serve"
@@ -32,6 +36,14 @@ def main() -> None:
     if command == "initdb":
         init_db()
         print("Database initialized.")
+        return
+
+    if command == "faa-sync":
+        from .faa import sync_registry
+
+        init_db()
+        count = sync_registry(get_settings())
+        print(f"FAA registry synced: {count} aircraft cached.")
         return
 
     if command == "collect":

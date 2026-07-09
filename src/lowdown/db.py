@@ -31,6 +31,36 @@ def _set_sqlite_pragma(dbapi_connection, _connection_record):  # noqa: ANN001
         pass
 
 
+# Columns added to lowaltitudeevent after its first release. SQLModel's
+# create_all only creates missing *tables*, never missing columns, so we add
+# them by hand for pre-existing SQLite databases.
+_EVENT_COLUMN_ADDITIONS: dict[str, str] = {
+    "near_helipad": "VARCHAR",
+    "aircraft_type": "VARCHAR",
+    "aircraft_model": "VARCHAR",
+    "is_exempt": "BOOLEAN NOT NULL DEFAULT 0",
+    "exempt_reason": "VARCHAR",
+}
+
+
+def _migrate_sqlite() -> None:
+    """Add columns introduced after the initial schema to an existing DB."""
+    if not _settings.db_url.startswith("sqlite"):
+        return
+    with engine.begin() as conn:
+        existing = {
+            row[1]
+            for row in conn.exec_driver_sql("PRAGMA table_info(lowaltitudeevent)")
+        }
+        if not existing:
+            return  # table doesn't exist yet; create_all will build it fresh
+        for column, ddl in _EVENT_COLUMN_ADDITIONS.items():
+            if column not in existing:
+                conn.exec_driver_sql(
+                    f"ALTER TABLE lowaltitudeevent ADD COLUMN {column} {ddl}"
+                )
+
+
 def init_db() -> None:
     """Create the SQLite parent directory (if any) and all tables."""
     if _settings.db_url.startswith("sqlite:///"):
@@ -39,6 +69,7 @@ def init_db() -> None:
     # Import models so their tables are registered on SQLModel.metadata.
     from . import models  # noqa: F401
 
+    _migrate_sqlite()
     SQLModel.metadata.create_all(engine)
 
 

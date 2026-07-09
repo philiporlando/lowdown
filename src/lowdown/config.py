@@ -15,12 +15,32 @@ class Airport(BaseModel):
     lon: float
 
 
+class Helipad(BaseModel):
+    code: str
+    lat: float
+    lon: float
+
+
 # Airports near Portland, OR. Aircraft on approach/departure here are legally
 # exempt from the 91.119 altitude minimums, so we annotate (not hide) them.
 DEFAULT_AIRPORTS: list[Airport] = [
     Airport(code="PDX", lat=45.5887, lon=-122.5975),  # Portland International
     Airport(code="TTD", lat=45.5494, lon=-122.4014),  # Portland-Troutdale
     Airport(code="HIO", lat=45.5404, lon=-122.9498),  # Hillsboro
+]
+
+# Hospital (and other) helipads near Portland, OR. Medevac helicopters
+# (e.g. Life Flight) legally descend to land here; low passes within a short
+# radius are annotated as likely approach/departure rather than counted as
+# apparent violations.
+DEFAULT_HELIPADS: list[Helipad] = [
+    Helipad(code="OHSU", lat=45.4993, lon=-122.6855),      # OHSU Hospital
+    Helipad(code="EMANUEL", lat=45.5435, lon=-122.6668),   # Legacy Emanuel (trauma)
+    Helipad(code="GOOD-SAM", lat=45.5308, lon=-122.6875),  # Legacy Good Samaritan
+    Helipad(code="PROVIDENCE", lat=45.5432, lon=-122.5905),  # Providence Portland
+    Helipad(code="ADVENTIST", lat=45.5140, lon=-122.5490),   # Adventist Health
+    Helipad(code="TUALITY", lat=45.5219, lon=-122.9847),     # Hillsboro Medical
+    Helipad(code="SALMON-CREEK", lat=45.7075, lon=-122.6535),  # Legacy Salmon Creek
 ]
 
 
@@ -66,8 +86,16 @@ class Settings(BaseSettings):
 
     # Approach/departure annotation.
     airport_proximity_km: float = 8.0
+    # Helipads are small point facilities, so use a tight radius.
+    helipad_proximity_km: float = 1.0
     vertical_rate_excepted_fpm: float = 500.0
     airports: list[Airport] = Field(default_factory=lambda: list(DEFAULT_AIRPORTS))
+    helipads: list[Helipad] = Field(default_factory=lambda: list(DEFAULT_HELIPADS))
+
+    # FAA aircraft registry (for authoritative aircraft type by N-number).
+    # Populate the local cache with ``lowdown faa-sync``; flagging works without
+    # it, just without registry-derived type exemptions.
+    faa_registry_url: str = "https://registry.faa.gov/database/ReleasableAircraft.zip"
 
     # Storage / runtime.
     db_url: str = "sqlite:///data/lowdown.db"

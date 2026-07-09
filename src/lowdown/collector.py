@@ -12,7 +12,8 @@ from sqlmodel import select
 from .config import Settings, get_settings
 from .db import get_session
 from .elevation import ElevationProvider
-from .geo import bounding_box
+from .faa import AircraftTypeProvider
+from .geo import MS_TO_KT, bounding_box
 from .live import process_aircraft
 from .models import LowAltitudeEvent, Observation
 from .opensky import AircraftState, OpenSkyClient
@@ -30,7 +31,10 @@ class Collector:
         self.settings = settings or get_settings()
 
     async def poll_once(
-        self, opensky: OpenSkyClient, elevation: ElevationProvider
+        self,
+        opensky: OpenSkyClient,
+        elevation: ElevationProvider,
+        aircraft_types: AircraftTypeProvider,
     ) -> None:
         s = self.settings
         box = bounding_box(s.apartment_lat, s.apartment_lon, s.earshot_radius_m)
@@ -39,7 +43,7 @@ class Collector:
         snapshot: list[dict] = []
 
         for st in states:
-            pa = await process_aircraft(s, elevation, st)
+            pa = await process_aircraft(s, elevation, aircraft_types, st)
             if pa is None:
                 continue
             snapshot.append(pa.to_dict())
@@ -94,8 +98,13 @@ class Collector:
                     closest_distance_m=distance_m,
                     sample_count=0,
                     near_airport=ev.near_airport,
+                    near_helipad=ev.near_helipad,
                     likely_approach_departure=ev.likely_approach_departure,
                     is_rotorcraft=ev.is_rotorcraft,
+                    aircraft_type=ev.aircraft_type,
+                    aircraft_model=ev.aircraft_model,
+                    is_exempt=ev.is_exempt,
+                    exempt_reason=ev.exempt_reason,
                 )
 
             event.last_seen = now
@@ -106,12 +115,22 @@ class Collector:
             event.closest_distance_m = min(event.closest_distance_m, distance_m)
             if not event.callsign and st.callsign:
                 event.callsign = st.callsign
-            # Once flagged as likely approach/departure, keep it flagged.
+            # Exemptions are sticky: once an event looks legal, keep it that way.
             event.likely_approach_departure = (
                 event.likely_approach_departure or ev.likely_approach_departure
             )
+            if ev.is_exempt and not event.is_exempt:
+                event.is_exempt = True
+                event.exempt_reason = ev.exempt_reason
+            event.is_rotorcraft = event.is_rotorcraft or ev.is_rotorcraft
             if ev.near_airport and not event.near_airport:
                 event.near_airport = ev.near_airport
+            if ev.near_helipad and not event.near_helipad:
+                event.near_helipad = ev.near_helipad
+            if ev.aircraft_type and not event.aircraft_type:
+                event.aircraft_type = ev.aircraft_type
+            if ev.aircraft_model and not event.aircraft_model:
+                event.aircraft_model = ev.aircraft_model
             session.add(event)
             session.commit()
             session.refresh(event)
@@ -155,6 +174,7 @@ class Collector:
         async with httpx.AsyncClient(timeout=30.0) as client:
             opensky = OpenSkyClient(s, client)
             elevation = ElevationProvider(s, client)
+            aircraft_types = AircraftTypeProvider(s)
             log.info(
                 "Collector started: (%.4f, %.4f) r=%.0fm every %.0fs.",
                 s.apartment_lat,
@@ -164,7 +184,7 @@ class Collector:
             )
             while True:
                 try:
-                    await self.poll_once(opensky, elevation)
+                    await self.poll_once(opensky, elevation, aircraft_types)
                 except Exception as exc:  # noqa: BLE001 — keep the loop alive
                     log.exception("Poll failed: %s", exc)
                     runtime_state.set_error(str(exc))

@@ -19,6 +19,7 @@ from .collector import Collector
 from .config import get_settings
 from .db import get_session, init_db
 from .elevation import ElevationProvider
+from .faa import AircraftTypeProvider
 from .live import LiveService
 from .models import LowAltitudeEvent, Observation
 from .opensky import OpenSkyClient
@@ -42,6 +43,7 @@ async def lifespan(app: FastAPI):
         settings,
         OpenSkyClient(settings, client),
         ElevationProvider(settings, client),
+        AircraftTypeProvider(settings),
     )
 
     task: asyncio.Task | None = None
@@ -193,11 +195,13 @@ def stats() -> dict:
     with get_session() as session:
         events_all = session.exec(select(LowAltitudeEvent)).all()
     total = len(events_all)
+    exempt = sum(1 for e in events_all if e.is_exempt)
     likely = sum(1 for e in events_all if e.likely_approach_departure)
     return {
         "total_events": total,
+        "exempt": exempt,
         "likely_approach_departure": likely,
-        "unexplained": total - likely,
+        "unexplained": total - exempt,
         "distinct_aircraft": len({e.icao24 for e in events_all}),
     }
 
@@ -241,7 +245,12 @@ def _event_dict(e: LowAltitudeEvent) -> dict:
         "closest_distance_m": round(e.closest_distance_m),
         "sample_count": e.sample_count,
         "near_airport": e.near_airport,
+        "near_helipad": e.near_helipad,
         "likely_approach_departure": e.likely_approach_departure,
         "is_rotorcraft": e.is_rotorcraft,
+        "aircraft_type": e.aircraft_type,
+        "aircraft_model": e.aircraft_model,
+        "is_exempt": e.is_exempt,
+        "exempt_reason": e.exempt_reason,
         "is_open": e.is_open,
     }
