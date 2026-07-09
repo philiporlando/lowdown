@@ -115,13 +115,13 @@
           : a.is_low ? (a.likely_approach_departure ? '#ffb300' : '#ff5252') : '#4caf50';
         const earshotNote = a.in_earshot ? '' : '<br><i>outside watch radius</i>';
         L.marker([a.lat,a.lon], {icon:planeIcon(color, a.in_earshot ? 1 : 0.5)}).addTo(liveLayer)
-          .bindPopup(`<b>${tail(a)}</b><br>AGL ${fmt(a.agl_ft,' ft')} · MSL ${fmt(a.msl_ft,' ft')}<br>${fmt(a.distance_m,' m')} away · ${fmt(a.velocity_kt,' kt')}${earshotNote}`);
+          .bindPopup(`<b>${tailLink(a)}</b><br>AGL ${fmt(a.agl_ft,' ft')} · MSL ${fmt(a.msl_ft,' ft')}<br>${fmt(a.distance_m,' m')} away · ${fmt(a.velocity_kt,' kt')}${earshotNote}`);
         if (!a.in_earshot) continue;  // table lists only aircraft in radius
         const status = a.is_low
           ? (a.likely_approach_departure ? '<span class="pill exempt">approach/dep</span>' : '<span class="pill low">LOW</span>')
           : 'ok';
         tb.insertAdjacentHTML('beforeend',
-          `<tr><td>${tail(a)}</td><td>${fmt(a.agl_ft,'')}</td><td>${fmt(a.distance_m,'')}</td><td>${status}</td></tr>`);
+          `<tr><td>${tailLink(a)}</td><td>${fmt(a.agl_ft,'')}</td><td>${fmt(a.distance_m,'')}</td><td>${status}</td></tr>`);
       }
     }
 
@@ -142,7 +142,7 @@
           : (e.is_open ? '<span class="pill open">ongoing</span>' : '<span class="pill low">flagged</span>');
         const row = document.createElement('tr');
         row.className='event';
-        row.innerHTML = `<td>${e.n_number||e.callsign||e.icao24}</td><td>${e.min_agl_ft} ft</td><td>${new Date(e.last_seen).toLocaleString()}</td><td>${note}</td>`;
+        row.innerHTML = `<td>${tailLink(e, true)}</td><td>${e.min_agl_ft} ft</td><td>${new Date(e.last_seen).toLocaleString()}</td><td>${note}</td>`;
         row.onclick = ()=>showPath(e.id);
         tb.appendChild(row);
       }
