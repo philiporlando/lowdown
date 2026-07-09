@@ -68,6 +68,7 @@
 
     let liveLayer = L.layerGroup().addTo(map);
     let pathLayer = L.layerGroup().addTo(map);
+    const markers = {};  // icao24 -> marker, reused across polls
 
     fetch('/api/config').then(r=>r.json()).then(cfg=>{
       (cfg.airports||[]).forEach(a=>{
@@ -122,8 +123,8 @@
       if (data.last_error) st.innerHTML = '⚠️ ' + data.last_error;
       else st.textContent = data.last_poll ? ('last poll ' + new Date(data.last_poll).toLocaleTimeString()) : 'waiting for first poll…';
 
-      liveLayer.clearLayers();
       const tb = document.querySelector('#live tbody'); tb.innerHTML='';
+      const seen = new Set();
       // Aircraft in earshot are flagged (red/amber/green); those in view but
       // beyond earshot are shown dimmed and grey — never flagged.
       data.aircraft.sort((a,b)=> (a.agl_ft??1e9)-(b.agl_ft??1e9));
@@ -138,14 +139,30 @@
         let extra = '';
         if (!a.in_earshot) extra = '<br><i>outside watch radius</i>';
         else if (a.is_low && a.is_exempt) extra = `<br><i>exempt: ${a.exempt_reason}</i>`;
-        L.marker([a.lat,a.lon], {icon:aircraftIcon(color, a.in_earshot ? 1 : 0.8, heli, a.heading)}).addTo(liveLayer)
-          .bindPopup(`<b>${tailLink(a)}</b>${typeLine}<br>AGL ${fmt(a.agl_ft,' ft')} · MSL ${fmt(a.msl_ft,' ft')}<br>${fmt(a.distance_m,' m')} away · ${fmt(a.velocity_kt,' kt')}${extra}`);
+        const icon = aircraftIcon(color, a.in_earshot ? 1 : 0.8, heli, a.heading);
+        const popupHtml = `<b>${tailLink(a)}</b>${typeLine}<br>AGL ${fmt(a.agl_ft,' ft')} · MSL ${fmt(a.msl_ft,' ft')}<br>${fmt(a.distance_m,' m')} away · ${fmt(a.velocity_kt,' kt')}${extra}`;
+        // Update the existing marker in place (don't recreate) so an open popup
+        // survives the poll refresh; only its content/position/icon change.
+        seen.add(a.icao24);
+        let m = markers[a.icao24];
+        if (m){
+          m.setLatLng([a.lat,a.lon]);
+          m.setIcon(icon);
+          m.setPopupContent(popupHtml);
+        } else {
+          m = L.marker([a.lat,a.lon], {icon}).bindPopup(popupHtml).addTo(liveLayer);
+          markers[a.icao24] = m;
+        }
         if (!a.in_earshot) continue;  // table lists only aircraft in radius
         const status = a.is_low
           ? (a.is_exempt ? `<span class="pill exempt" title="${a.exempt_reason||''}">exempt</span>` : '<span class="pill low">LOW</span>')
           : 'ok';
         tb.insertAdjacentHTML('beforeend',
           `<tr><td>${tailLink(a)}</td><td>${fmt(a.agl_ft,'')}</td><td>${fmt(a.distance_m,'')}</td><td>${status}</td></tr>`);
+      }
+      // Remove markers for aircraft no longer present (their popups close with them).
+      for (const id in markers){
+        if (!seen.has(id)){ liveLayer.removeLayer(markers[id]); delete markers[id]; }
       }
     }
 

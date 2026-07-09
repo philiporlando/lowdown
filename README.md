@@ -9,6 +9,8 @@ keeps everything within "earshot" of your location, converts each aircraft's
 altitude to **height above terrain (AGL)**, and flags anything below the
 threshold — while honestly annotating the cases that are legally exempt.
 
+![lowdown dashboard — live map of aircraft in the watch radius alongside a table of flagged low-altitude events, with helicopters annotated as exempt](docs/screenshot.png)
+
 ## What "violation" means here (read this)
 
 The rule is [14 CFR § 91.119](https://www.ecfr.gov/current/title-14/section-91.119).
