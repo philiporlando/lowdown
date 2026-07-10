@@ -117,13 +117,15 @@ async def process_aircraft(
         None if st.vertical_rate_ms is None else st.vertical_rate_ms * MS_TO_FPM
     )
     n_number = icao_to_n(st.icao24)
+    # Cheap cached registry read for every aircraft, so out-of-earshot
+    # rotorcraft still get the helicopter symbol on the map.
+    category, model = aircraft_types.lookup(n_number)
 
     ground_ft: float | None = None
     ev: Evaluation | None = None
     if in_earshot:
         ground_m = await elevation.elevation_m(st.lat, st.lon)
         ground_ft = None if ground_m is None else ground_m * M_TO_FT
-        category, model = aircraft_types.lookup(n_number)
         ev = evaluate(
             s,
             lat=st.lat,
@@ -146,6 +148,8 @@ async def process_aircraft(
         vertical_fpm=vertical_fpm,
         n_number=n_number,
         ev=ev,
+        category=category,
+        model=model,
     )
 
 

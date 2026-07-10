@@ -64,7 +64,6 @@
       attribution: '© OpenStreetMap contributors © CARTO'
     }).addTo(map);
     L.circle(APT, { radius: RADIUS, color:'#58a6ff', weight:1, fillOpacity:0.05 }).addTo(map);
-    L.marker(APT).addTo(map).bindPopup('Watch center');
 
     let liveLayer = L.layerGroup().addTo(map);
     let pathLayer = L.layerGroup().addTo(map);
