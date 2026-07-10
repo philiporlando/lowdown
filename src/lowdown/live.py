@@ -45,10 +45,19 @@ class ProcessedAircraft:
     vertical_fpm: float | None
     n_number: str | None
     ev: Evaluation | None
+    category: str | None = None  # FAA registry category (all aircraft, for symbol)
+    model: str | None = None  # FAA registry make/model
 
     @property
     def is_low(self) -> bool:
         return bool(self.ev is not None and self.ev.is_low)
+
+    @property
+    def is_rotorcraft(self) -> bool:
+        """True for helicopters/gyroplanes, whether or not in earshot."""
+        if self.ev is not None:
+            return self.ev.is_rotorcraft
+        return self.st.is_rotorcraft or self.category in ("rotorcraft", "gyroplane")
 
     def to_dict(self) -> dict:
         st, ev = self.st, self.ev
@@ -73,9 +82,13 @@ class ProcessedAircraft:
             "near_airport": ev.near_airport if ev else None,
             "near_helipad": ev.near_helipad if ev else None,
             "likely_approach_departure": bool(ev and ev.likely_approach_departure),
-            "is_rotorcraft": bool(ev.is_rotorcraft) if ev else st.is_rotorcraft,
-            "aircraft_type": ev.aircraft_type if ev else None,
-            "aircraft_model": ev.aircraft_model if ev else None,
+            "is_rotorcraft": self.is_rotorcraft,
+            "aircraft_type": (
+                ev.aircraft_type
+                if ev
+                else (self.category or ("rotorcraft" if st.is_rotorcraft else None))
+            ),
+            "aircraft_model": ev.aircraft_model if ev else self.model,
             "is_exempt": bool(ev and ev.is_exempt),
             "exempt_reason": ev.exempt_reason if ev else None,
         }
@@ -119,6 +132,7 @@ async def process_aircraft(
             ground_elev_ft=ground_ft,
             vertical_rate_fpm=vertical_fpm,
             is_rotorcraft=st.is_rotorcraft,
+            heading=st.heading,
             aircraft_category=category,
             aircraft_model=model,
         )

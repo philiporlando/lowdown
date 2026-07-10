@@ -84,6 +84,10 @@ class Settings(BaseSettings):
 
     # Approach/departure annotation.
     airport_proximity_km: float = 8.0
+    # An aircraft is treated as approaching an airport only if its ground track
+    # points within this many degrees of the bearing to it (otherwise it's only
+    # a departure if also climbing). Guards against exempting mere fly-bys.
+    airport_toward_cone_deg: float = 90.0
     # Helipads are small point facilities, so use a tight radius.
     helipad_proximity_km: float = 1.0
     vertical_rate_excepted_fpm: float = 500.0

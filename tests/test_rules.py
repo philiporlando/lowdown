@@ -66,6 +66,71 @@ def test_near_airport_is_annotated_exempt():
     assert ev.likely_approach_departure is True
 
 
+def test_tracking_toward_airport_is_approach():
+    # South of PDX, heading north (toward it) -> approach.
+    ev = evaluate(
+        _settings(),
+        lat=45.55,
+        lon=-122.60,
+        msl_ft=950.0,
+        ground_elev_ft=30.0,
+        vertical_rate_fpm=-400.0,
+        is_rotorcraft=False,
+        heading=10.0,  # bearing toward PDX is ~north
+    )
+    assert ev.near_airport == "PDX"
+    assert ev.is_exempt is True
+
+
+def test_departing_airport_while_climbing_is_exempt():
+    # Near PDX, heading away (south) but climbing out -> departure.
+    ev = evaluate(
+        _settings(),
+        lat=45.55,
+        lon=-122.60,
+        msl_ft=950.0,
+        ground_elev_ft=30.0,
+        vertical_rate_fpm=800.0,
+        is_rotorcraft=False,
+        heading=200.0,  # away from PDX
+    )
+    assert ev.near_airport == "PDX"
+    assert ev.is_exempt is True
+
+
+def test_flying_away_from_airport_level_is_not_exempt():
+    # The N104BE case: within 8 km of PDX but tracking away and not climbing.
+    ev = evaluate(
+        _settings(),
+        lat=45.54,
+        lon=-122.61,
+        msl_ft=950.0,
+        ground_elev_ft=33.0,
+        vertical_rate_fpm=0.0,
+        is_rotorcraft=False,
+        heading=210.0,  # away from PDX (bearing to PDX is ~north)
+    )
+    assert ev.is_low is True
+    assert ev.near_airport is None
+    assert ev.likely_approach_departure is False
+    assert ev.is_exempt is False
+
+
+def test_near_airport_without_heading_falls_back_to_proximity():
+    ev = evaluate(
+        _settings(),
+        lat=45.55,
+        lon=-122.60,
+        msl_ft=950.0,
+        ground_elev_ft=30.0,
+        vertical_rate_fpm=0.0,
+        is_rotorcraft=False,
+        heading=None,
+    )
+    assert ev.near_airport == "PDX"
+    assert ev.is_exempt is True
+
+
 def test_steep_descent_is_annotated_exempt():
     ev = evaluate(
         _settings(),

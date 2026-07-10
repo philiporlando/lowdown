@@ -12,8 +12,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .config import Settings
-from .geo import haversine_m
+from .config import Airport, Settings
+from .geo import angle_diff, bearing_deg, haversine_m
 
 # Registry categories treated as rotorcraft (exempt under 91.119(d)) and other
 # categories that fly under different altitude rules.
@@ -56,6 +56,47 @@ def nearest_airport(
     return _nearest(lat, lon, settings.airports)
 
 
+def _nearest_airport_obj(
+    settings: Settings, lat: float, lon: float
+) -> tuple[Airport | None, float]:
+    """Return (airport, distance_km) of the closest configured airport."""
+    best: Airport | None = None
+    best_km = float("inf")
+    for ap in settings.airports:
+        km = haversine_m(lat, lon, ap.lat, ap.lon) / 1000.0
+        if km < best_km:
+            best_km, best = km, ap
+    return best, best_km
+
+
+def airport_approach_departure(
+    settings: Settings,
+    lat: float,
+    lon: float,
+    airport: Airport,
+    heading: float | None,
+    vertical_rate_fpm: float | None,
+) -> str | None:
+    """Classify motion near ``airport`` as an approach/departure, if consistent.
+
+    Returns ``"approach"``, ``"departure"``, ``"proximity"`` (no track to judge),
+    or ``None`` when the track is *inconsistent* with using the airport — e.g.
+    flying away from it while level or descending, which is a mere fly-by, not a
+    takeoff or landing.
+    """
+    if heading is None:
+        return "proximity"
+    off = angle_diff(heading, bearing_deg(lat, lon, airport.lat, airport.lon))
+    if off <= settings.airport_toward_cone_deg:
+        return "approach"  # tracking toward the airport → arriving
+    if (
+        vertical_rate_fpm is not None
+        and vertical_rate_fpm >= settings.vertical_rate_excepted_fpm
+    ):
+        return "departure"  # tracking away but climbing out → departing
+    return None
+
+
 def nearest_helipad(
     settings: Settings, lat: float, lon: float
 ) -> tuple[str | None, float]:
@@ -72,6 +113,7 @@ def evaluate(
     ground_elev_ft: float | None,
     vertical_rate_fpm: float | None,
     is_rotorcraft: bool,
+    heading: float | None = None,
     aircraft_category: str | None = None,
     aircraft_model: str | None = None,
 ) -> Evaluation:
@@ -82,6 +124,11 @@ def evaluate(
     near an airport *or helipad*, rotorcraft (by ADS-B category or FAA registry),
     and gliders/balloons — so those can be annotated and excluded from the count
     of unexplained events rather than hidden.
+
+    The airport exemption uses the aircraft's ground ``heading`` and vertical
+    rate, not distance alone: an aircraft merely transiting near an airport
+    (flying away from it, level or descending) is *not* treated as a
+    takeoff/landing and stays flagged.
     """
     notes: list[str] = []
     threshold = settings.threshold_agl_ft + settings.obstacle_buffer_ft
@@ -92,8 +139,16 @@ def evaluate(
 
     is_low = agl_ft is not None and agl_ft < threshold
 
-    airport_code, airport_km = nearest_airport(settings, lat, lon)
-    near_airport = airport_code if airport_km <= settings.airport_proximity_km else None
+    airport, airport_km = _nearest_airport_obj(settings, lat, lon)
+    airport_mode: str | None = None
+    near_airport: str | None = None
+    if airport is not None and airport_km <= settings.airport_proximity_km:
+        airport_mode = airport_approach_departure(
+            settings, lat, lon, airport, heading, vertical_rate_fpm
+        )
+        if airport_mode is not None:
+            near_airport = airport.code
+
     helipad_code, helipad_km = nearest_helipad(settings, lat, lon)
     near_helipad = helipad_code if helipad_km <= settings.helipad_proximity_km else None
     steep = (
@@ -111,9 +166,15 @@ def evaluate(
 
     reasons: list[str] = []
     if near_airport is not None:
-        reasons.append(
-            f"within {settings.airport_proximity_km:.0f} km of {near_airport} (likely takeoff/landing)"
-        )
+        if airport_mode == "approach":
+            reasons.append(f"approaching {near_airport} (tracking toward it)")
+        elif airport_mode == "departure":
+            reasons.append(f"departing {near_airport} (climbing out)")
+        else:
+            reasons.append(
+                f"within {settings.airport_proximity_km:.0f} km of {near_airport} "
+                "(no track; likely takeoff/landing)"
+            )
     if near_helipad is not None:
         reasons.append("near a hospital helipad (likely medevac landing)")
     if steep:

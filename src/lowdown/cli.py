@@ -24,6 +24,10 @@ def main() -> None:
         "faa-sync",
         help="Download the FAA aircraft registry into the local type cache.",
     )
+    sub.add_parser(
+        "reclassify",
+        help="Re-score stored events against the current rules (no re-fetch).",
+    )
 
     args = parser.parse_args()
     command = args.command or "serve"
@@ -44,6 +48,14 @@ def main() -> None:
         init_db()
         count = sync_registry(get_settings())
         print(f"FAA registry synced: {count} aircraft cached.")
+        return
+
+    if command == "reclassify":
+        from .backfill import reclassify_events
+
+        init_db()
+        total, changed = reclassify_events(get_settings())
+        print(f"Reclassified {total} events; {changed} changed.")
         return
 
     if command == "collect":
