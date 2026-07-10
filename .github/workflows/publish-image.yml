@@ -12,6 +12,9 @@ concurrency:
   group: publish-image-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   # Never publish an image that hasn't passed lint + types + tests.
   validate:
