@@ -1,7 +1,7 @@
 # lowdown 🛩️
 
-Logs and flags **low-flying aircraft** over a target location (an apartment in
-Portland, OR by default) so you can build a documented record for a noise
+Logs and flags **low-flying aircraft** over a point of interest (a Portland, OR
+neighborhood by default) so you can build a documented record for a noise
 complaint. It polls live ADS-B data from the
 [OpenSky Network](https://opensky-network.org/), converts each aircraft's
 altitude to **height above terrain (AGL)**, and flags anything below the
@@ -39,7 +39,7 @@ httpx · Leaflet · Docker.
 ## Quick start
 
 ```bash
-cp .env.example .env    # set LD_APARTMENT_LAT/LON and (recommended) OpenSky creds
+cp .env.example .env    # set LD_POI_LAT/LON and (recommended) OpenSky creds
 uv sync                 # create venv + install
 uv run lowdown serve    # dashboard + collector in one process
 # open http://localhost:8000
@@ -112,7 +112,7 @@ All settings are environment variables prefixed `LD_` (see
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `LD_APARTMENT_LAT` / `_LON` | downtown PDX | Center of the watch area |
+| `LD_POI_LAT` / `_LON` | downtown PDX | Center of the watch area |
 | `LD_EARSHOT_RADIUS_M` | `3000` | Watch/flagging radius in meters |
 | `LD_THRESHOLD_AGL_FT` | `1000` | Flag aircraft below this AGL |
 | `LD_OBSTACLE_BUFFER_FT` | `0` | Pad added to the threshold for buildings |

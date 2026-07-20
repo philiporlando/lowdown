@@ -110,7 +110,7 @@ async def process_aircraft(
         return None
 
     s = settings
-    distance_m = haversine_m(s.apartment_lat, s.apartment_lon, st.lat, st.lon)
+    distance_m = haversine_m(s.poi_lat, s.poi_lon, st.lat, st.lon)
     in_earshot = distance_m <= s.earshot_radius_m
     msl_ft = st.altitude_m * M_TO_FT
     vertical_fpm = (

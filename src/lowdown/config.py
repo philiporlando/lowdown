@@ -47,9 +47,9 @@ DEFAULT_HELIPADS: list[Helipad] = [
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="LD_", extra="ignore")
 
-    # Location to monitor (default: downtown Portland, OR).
-    apartment_lat: float = 45.5152
-    apartment_lon: float = -122.6784
+    # Point of interest to monitor (default: downtown Portland, OR).
+    poi_lat: float = 45.5152
+    poi_lon: float = -122.6784
     earshot_radius_m: float = 3000.0
 
     # Rule threshold (14 CFR 91.119(b), approximated as height above terrain).
