@@ -48,7 +48,7 @@
       <div class="disclaimer">
         <b>Not legal advice.</b> These are <i>apparent</i> low-altitude events approximating
         14&nbsp;CFR&nbsp;§91.119(b) as height above terrain. Aircraft taking off or landing are
-        exempt (marked <span class="pill exempt">approach/dep</span>), as are helicopters.
+        exempt (marked <span class="pill exempt">approach/departure</span>), as are helicopters.
         Altitudes come from ADS-B and terrain models and can be off by a few hundred feet.
         Use as a record to support a complaint, not as proof of a violation.
       </div>
@@ -72,7 +72,7 @@
     fetch('/api/config').then(r=>r.json()).then(cfg=>{
       (cfg.airports||[]).forEach(a=>{
         L.circleMarker([a.lat,a.lon], {radius:4,color:'#ffb300',fillOpacity:1})
-          .addTo(map).bindTooltip(a.code + ' (approach/dep exempt zone)');
+          .addTo(map).bindTooltip(a.code + ' (approach/departure exempt zone)');
       });
     });
 
@@ -179,7 +179,7 @@
       for (const e of events){
         // Note the exemption by aircraft kind, not by facility (we don't care
         // which hospital/airport): helicopter vs. airplane on approach/departure.
-        let exemptLabel = 'approach/dep';
+        let exemptLabel = 'approach/departure';
         if (e.is_rotorcraft || e.near_helipad) exemptLabel = 'helicopter';
         else if (e.aircraft_type && e.aircraft_type !== 'fixed-wing') exemptLabel = e.aircraft_type;
         const note = e.is_exempt
