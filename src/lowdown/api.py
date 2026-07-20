@@ -128,7 +128,7 @@ async def live(
             }
         except Exception as exc:
             log.exception("Viewport live fetch failed: %s", exc)
-            last_error = str(exc)
+            last_error = "Live data temporarily unavailable"
 
     return {
         "last_poll": last_poll.isoformat() if last_poll else None,
