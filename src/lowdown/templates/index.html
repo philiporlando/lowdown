@@ -9,12 +9,14 @@
   <style>
     :root { --bg:#0f1419; --panel:#1a222c; --fg:#e6edf3; --muted:#8b98a5; --low:#ff5252; --ok:#4caf50; --warn:#ffb300; }
     * { box-sizing: border-box; }
-    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); }
-    header { padding:10px 16px; border-bottom:1px solid #2a3541; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; }
+    html, body { height:100%; }
+    body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--fg); height:100dvh; display:flex; flex-direction:column; }
+    header { padding:10px 16px; border-bottom:1px solid #2a3541; display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; flex:0 0 auto; }
     header h1 { font-size:18px; margin:0; }
     header .meta { color:var(--muted); font-size:13px; }
-    #wrap { display:flex; height:calc(100vh - 47px); }
-    #map { flex:1 1 60%; }
+    /* Header keeps its natural height; #wrap fills whatever's left (no magic pixel offset). */
+    #wrap { flex:1 1 auto; display:flex; min-height:0; }
+    #map { flex:1 1 60%; min-height:0; }
     #side { flex:1 1 40%; max-width:560px; overflow:auto; padding:12px 14px; border-left:1px solid #2a3541; }
     h2 { font-size:14px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); margin:18px 0 8px; }
     table { width:100%; border-collapse:collapse; font-size:13px; }
@@ -29,6 +31,20 @@
     .stats b { color:var(--fg); font-size:16px; }
     .disclaimer { font-size:11px; color:var(--muted); margin-top:20px; line-height:1.5; border-top:1px solid #2a3541; padding-top:10px; }
     a { color:#58a6ff; }
+
+    /* Phones / narrow viewports: stack map over the table for a vertical, thumb-friendly
+       layout. Placed last so these overrides win over the base rules above. */
+    @media (max-width: 768px) {
+      #wrap { flex-direction:column; }
+      #map { flex:0 0 50vh; }
+      #side { flex:1 1 auto; max-width:none; border-left:none; border-top:1px solid #2a3541; padding:12px 8px; }
+      /* Let cells wrap and reclaim width (smaller font, tighter padding) so long
+         timestamps / pill labels stay on-screen instead of pushing the Note column
+         past the edge. overflow-wrap:anywhere lets even unbreakable tokens
+         (e.g. "approach/departure") break rather than force the table wider than the viewport. */
+      table { font-size:12px; }
+      th,td { white-space:normal; overflow-wrap:anywhere; padding:5px 5px; }
+    }
   </style>
 </head>
 <body>
@@ -211,6 +227,12 @@
     // whatever is in the current viewport.
     let moveTimer;
     map.on('moveend', ()=>{ clearTimeout(moveTimer); moveTimer = setTimeout(refreshLive, 400); });
+
+    // When the viewport flips between the stacked (mobile) and side-by-side (desktop)
+    // layouts — resize or device rotation — tell Leaflet to recompute its container
+    // size so tiles fill the new dimensions instead of leaving grey gaps.
+    let resizeTimer;
+    window.addEventListener('resize', ()=>{ clearTimeout(resizeTimer); resizeTimer = setTimeout(()=>map.invalidateSize(), 200); });
 
     refreshLive(); refreshEvents();
     setInterval(refreshLive, 5000);
