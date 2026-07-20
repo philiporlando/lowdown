@@ -82,8 +82,8 @@ def healthz() -> dict:
 def config() -> dict:
     s = get_settings()
     return {
-        "apartment_lat": s.apartment_lat,
-        "apartment_lon": s.apartment_lon,
+        "poi_lat": s.poi_lat,
+        "poi_lon": s.poi_lon,
         "earshot_radius_m": s.earshot_radius_m,
         "threshold_agl_ft": s.threshold_agl_ft,
         "obstacle_buffer_ft": s.obstacle_buffer_ft,
@@ -219,8 +219,8 @@ def index(request: Request) -> HTMLResponse:
         request,
         "index.html",
         {
-            "apartment_lat": s.apartment_lat,
-            "apartment_lon": s.apartment_lon,
+            "poi_lat": s.poi_lat,
+            "poi_lon": s.poi_lon,
             "earshot_radius_m": s.earshot_radius_m,
             "threshold_ft": s.threshold_agl_ft + s.obstacle_buffer_ft,
         },

@@ -56,14 +56,14 @@
   </div>
 
   <script>
-    const APT = [{{ apartment_lat }}, {{ apartment_lon }}];
+    const POI = [{{ poi_lat }}, {{ poi_lon }}];
     const RADIUS = {{ earshot_radius_m }};
-    const map = L.map('map').setView(APT, 13);
+    const map = L.map('map').setView(POI, 13);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 20, subdomains: 'abcd', detectRetina: true,
       attribution: '© OpenStreetMap contributors © CARTO'
     }).addTo(map);
-    L.circle(APT, { radius: RADIUS, color:'#58a6ff', weight:1, fillOpacity:0.05 }).addTo(map);
+    L.circle(POI, { radius: RADIUS, color:'#58a6ff', weight:1, fillOpacity:0.05 }).addTo(map);
 
     let liveLayer = L.layerGroup().addTo(map);
     let pathLayer = L.layerGroup().addTo(map);

@@ -6,8 +6,8 @@ from lowdown.rules import evaluate
 
 def _settings(**overrides) -> Settings:
     base = dict(
-        apartment_lat=45.5152,
-        apartment_lon=-122.6784,
+        poi_lat=45.5152,
+        poi_lon=-122.6784,
         threshold_agl_ft=1000.0,
         obstacle_buffer_ft=0.0,
         airport_proximity_km=8.0,

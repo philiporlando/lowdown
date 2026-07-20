@@ -37,7 +37,7 @@ class Collector:
         aircraft_types: AircraftTypeProvider,
     ) -> None:
         s = self.settings
-        box = bounding_box(s.apartment_lat, s.apartment_lon, s.earshot_radius_m)
+        box = bounding_box(s.poi_lat, s.poi_lon, s.earshot_radius_m)
         states = await opensky.states_in_box(*box)
         now = _utcnow()
         snapshot: list[dict] = []
@@ -183,8 +183,8 @@ class Collector:
             aircraft_types = AircraftTypeProvider(s)
             log.info(
                 "Collector started: (%.4f, %.4f) r=%.0fm every %.0fs.",
-                s.apartment_lat,
-                s.apartment_lon,
+                s.poi_lat,
+                s.poi_lon,
                 s.earshot_radius_m,
                 s.poll_interval_s,
             )
