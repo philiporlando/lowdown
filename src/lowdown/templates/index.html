@@ -32,6 +32,23 @@
     .disclaimer { font-size:11px; color:var(--muted); margin-top:20px; line-height:1.5; border-top:1px solid #2a3541; padding-top:10px; }
     a { color:#58a6ff; }
 
+    /* Map legend (a Leaflet control, bottom-left). Collapsible <details> so it can fold
+       away on small screens; the swatches reuse the real marker glyphs (see aircraftSvg). */
+    .legend { background:rgba(26,34,44,.92); color:var(--fg); border:1px solid #2a3541;
+      border-radius:8px; box-shadow:0 1px 6px rgba(0,0,0,.4); font-size:12px; line-height:1.2;
+      max-width:min(72vw,240px); }
+    .legend summary { list-style:none; cursor:pointer; user-select:none; padding:6px 10px;
+      font-size:11px; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); }
+    .legend summary::-webkit-details-marker { display:none; }
+    .legend summary::before { content:'▸'; display:inline-block; margin-right:6px; transition:transform .15s; }
+    .legend details[open] summary::before { transform:rotate(90deg); }
+    .legend .legend-body { padding:2px 10px 9px; display:grid; gap:6px; }
+    .lg-row { display:flex; align-items:center; gap:8px; }
+    .lg-ico { flex:0 0 18px; width:18px; height:18px; display:inline-flex; align-items:center; justify-content:center; }
+    .lg-ico svg { width:18px; height:18px; display:block; filter:drop-shadow(0 0 1px rgba(0,0,0,.55)); }
+    .lg-dot { width:12px; height:12px; border-radius:50%; background:var(--warn); }
+    .lg-ring { width:14px; height:14px; border-radius:50%; border:1px solid #58a6ff; background:rgba(88,166,255,.06); }
+
     /* Phones / narrow viewports: stack map over the table for a vertical, thumb-friendly
        layout. Placed last so these overrides win over the base rules above. */
     @media (max-width: 768px) {
@@ -233,6 +250,34 @@
     // size so tiles fill the new dimensions instead of leaving grey gaps.
     let resizeTimer;
     window.addEventListener('resize', ()=>{ clearTimeout(resizeTimer); resizeTimer = setTimeout(()=>map.invalidateSize(), 200); });
+
+    // Map legend: a collapsible key for the marker colors/shapes and map overlays. The
+    // aircraft swatches call aircraftSvg (heading 0) so they match the live markers exactly.
+    // Collapsed by default on phones to preserve map area; open on wider screens.
+    const legend = L.control({ position: 'bottomleft' });
+    legend.onAdd = () => {
+      const row = (ico, label) => `<div class="lg-row"><span class="lg-ico">${ico}</span><span>${label}</span></div>`;
+      const openByDefault = !window.matchMedia('(max-width: 768px)').matches;
+      const div = L.DomUtil.create('div', 'legend');
+      div.innerHTML =
+        `<details ${openByDefault ? 'open' : ''}>
+           <summary>Legend</summary>
+           <div class="legend-body">
+             ${row(aircraftSvg('#ff5252', false, 0), 'Apparent low pass')}
+             ${row(aircraftSvg('#ffb300', false, 0), 'Low but exempt')}
+             ${row(aircraftSvg('#3fa34a', false, 0), 'In radius — OK')}
+             ${row(aircraftSvg('#556676', false, 0), 'Outside watch radius')}
+             ${row(aircraftSvg('#8b98a5', true, 0), 'Helicopter')}
+             ${row('<span class="lg-dot"></span>', 'Airport / helipad')}
+             ${row('<span class="lg-ring"></span>', 'Watch radius')}
+           </div>
+         </details>`;
+      // Keep clicks/scrolls on the legend from panning or zooming the map underneath.
+      L.DomEvent.disableClickPropagation(div);
+      L.DomEvent.disableScrollPropagation(div);
+      return div;
+    };
+    legend.addTo(map);
 
     refreshLive(); refreshEvents();
     setInterval(refreshLive, 5000);
