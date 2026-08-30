@@ -1,6 +1,6 @@
 [project]
 name = "lowdown"
-version = "0.1.0"
+version = "0.1.1"
 description = "Log and flag low-flying aircraft over a target location (apparent 14 CFR 91.119 low-altitude events)."
 readme = "README.md"
 requires-python = ">=3.12"
