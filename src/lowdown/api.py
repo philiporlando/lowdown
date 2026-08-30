@@ -223,6 +223,8 @@ def index(request: Request) -> HTMLResponse:
             "poi_lon": s.poi_lon,
             "earshot_radius_m": s.earshot_radius_m,
             "threshold_ft": s.threshold_agl_ft + s.obstacle_buffer_ft,
+            "basemap_url": s.basemap_url,
+            "basemap_attribution": s.basemap_attribution,
         },
     )
 

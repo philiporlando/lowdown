@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import quote
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -99,9 +100,36 @@ class Settings(BaseSettings):
     # it, just without registry-derived type exemptions.
     faa_registry_url: str = "https://registry.faa.gov/database/ReleasableAircraft.zip"
 
+    # Basemap tiles for the dashboard map. CARTO now stamps "API KEY REQUIRED"
+    # across every raster tile unless a key is supplied; a free one (non-commercial,
+    # 5M tiles/month) comes from https://carto.com/basemaps/apikey/. Without a key
+    # the map still works, just watermarked. Styles: light_all, dark_all,
+    # rastertiles/voyager. The key is served to the browser (it has to be, the
+    # tiles are fetched client-side), so restrict it by domain in CARTO's console.
+    basemap_url_template: str = (
+        "https://{s}.basemaps.cartocdn.com/{style}/{z}/{x}/{y}{r}.png"
+    )
+    basemap_style: str = "light_all"
+    basemap_api_key: str | None = None
+    basemap_attribution: str = "© OpenStreetMap contributors © CARTO"
+
     # Storage / runtime.
     db_url: str = "sqlite:///data/lowdown.db"
     run_collector: bool = True
+
+    @property
+    def basemap_url(self) -> str:
+        """Tile URL for Leaflet: ``{style}`` resolved and the API key appended.
+
+        Leaflet fills in ``{s}``/``{z}``/``{x}``/``{y}``/``{r}`` itself, so
+        substitute with ``replace`` rather than ``str.format`` (which would choke
+        on those placeholders).
+        """
+        url = self.basemap_url_template.replace("{style}", self.basemap_style)
+        if self.basemap_api_key:
+            sep = "&" if "?" in url else "?"
+            url = f"{url}{sep}key={quote(self.basemap_api_key, safe='')}"
+        return url
 
 
 @lru_cache

@@ -104,6 +104,10 @@ Notes:
 - Optionally allow `/healthz` unauthenticated for external uptime checks.
 - The dashboard loads Leaflet + CARTO basemap tiles from public CDNs, so
   viewers' browsers need outbound internet.
+- **Set `LD_BASEMAP_API_KEY`**, or CARTO watermarks every basemap tile with
+  "API KEY REQUIRED". Keys are free for non-commercial use (5M tiles/month) at
+  [carto.com/basemaps/apikey](https://carto.com/basemaps/apikey/). The key is
+  served to the browser, so restrict it by domain in the CARTO console.
 
 ## Configuration
 
@@ -119,6 +123,8 @@ All settings are environment variables prefixed `LD_` (see
 | `LD_POLL_INTERVAL_S` | `30` | Seconds between OpenSky polls |
 | `LD_EVENT_GAP_S` | `300` | Silence before an ongoing event is closed |
 | `LD_ELEVATION_PROVIDER` | `open-meteo` | `open-meteo` (per-point terrain) or `fixed` |
+| `LD_BASEMAP_API_KEY` | _(none)_ | CARTO key; without it tiles are watermarked |
+| `LD_BASEMAP_STYLE` | `light_all` | `light_all`, `dark_all`, `rastertiles/voyager` |
 
 ## API
 

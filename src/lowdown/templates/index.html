@@ -92,9 +92,12 @@
     const POI = [{{ poi_lat }}, {{ poi_lon }}];
     const RADIUS = {{ earshot_radius_m }};
     const map = L.map('map').setView(POI, 13);
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    // Tile URL comes from settings (LD_BASEMAP_*) so the CARTO API key isn't baked
+    // into the template; `tojson` emits a safe JS string literal even if the
+    // configured URL carries query params.
+    L.tileLayer({{ basemap_url|tojson }}, {
       maxZoom: 20, subdomains: 'abcd', detectRetina: true,
-      attribution: '© OpenStreetMap contributors © CARTO'
+      attribution: {{ basemap_attribution|tojson }}
     }).addTo(map);
     L.circle(POI, { radius: RADIUS, color:'#58a6ff', weight:1, fillOpacity:0.05 }).addTo(map);
 
